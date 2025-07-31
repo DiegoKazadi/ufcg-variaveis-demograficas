@@ -322,6 +322,84 @@ ggplot(resultado_final, aes(x = periodo, y = taxa_evasao, fill = sexo)) +
 
 ###
 
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(scales)
+
+# 1. Criar variável faixa etária
+alunos <- alunos %>%
+  mutate(
+    idade = as.numeric(`Idade Aproximada no Ingresso`),
+    faixa_etaria = case_when(
+      idade < 18 ~ "< 18",
+      idade >= 18 & idade <= 20 ~ "18-20",
+      idade >= 21 & idade <= 23 ~ "21-23",
+      idade >= 24 & idade <= 26 ~ "24-26",
+      idade >= 27 ~ "27+",
+      TRUE ~ NA_character_
+    ),
+    Periodo_Ingresso = `Período de Ingresso`,
+    Periodo_Evasao = `Período de Evasão`,
+    curriculo = as.character(Currículo),
+    evadiu = !is.na(`Tipo de Evasão`) & Status == "INATIVO"
+  )
+
+# 2. Definir períodos alvo
+periodos <- list(
+  `1º Período` = list(diff = 1, min = "2011.1", max = "2017.2"),
+  `2º Período` = list(diff = 2, min = "2011.1", max = "2017.1"),
+  `3º Período` = list(diff = 3, min = "2011.1", max = "2016.2"),
+  `4º Período` = list(diff = 4, min = "2011.1", max = "2016.1")
+)
+
+# 3. Função para calcular evasão
+calcular_taxa_evasao <- function(data, curriculo_alvo, periodo_nome, diff, min_periodo, max_periodo) {
+  data %>%
+    filter(curriculo == curriculo_alvo,
+           Periodo_Ingresso >= min_periodo,
+           Periodo_Ingresso <= max_periodo,
+           !is.na(faixa_etaria)) %>%
+    mutate(
+      evasao_periodo = as.numeric(substr(Periodo_Evasao, 1, 4)) * 2 + as.numeric(substr(Periodo_Evasao, 6, 6)),
+      ingresso_periodo = as.numeric(substr(Periodo_Ingresso, 1, 4)) * 2 + as.numeric(substr(Periodo_Ingresso, 6, 6)),
+      periodo_diff = evasao_periodo - ingresso_periodo
+    ) %>%
+    group_by(faixa_etaria) %>%
+    summarise(
+      total = n(),
+      evadiram = sum(evadiu & periodo_diff == diff, na.rm = TRUE),
+      taxa = round(100 * evadiram / total, 1),
+      .groups = "drop"
+    ) %>%
+    mutate(curriculo = curriculo_alvo, Periodo = periodo_nome)
+}
+
+# 4. Gerar tabela final
+tabela_final <- bind_rows(
+  lapply(names(periodos), function(p) {
+    bind_rows(
+      calcular_taxa_evasao(alunos, "1999", p, periodos[[p]]$diff, periodos[[p]]$min, periodos[[p]]$max),
+      calcular_taxa_evasao(alunos, "2017", p, periodos[[p]]$diff, periodos[[p]]$min, periodos[[p]]$max)
+    )
+  })
+)
+
+# 5. Visualizar tabela final
+print(tabela_final)
+
+# 6. Gerar gráfico
+ggplot(tabela_final, aes(x = faixa_etaria, y = taxa, fill = curriculo)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~Periodo) +
+  labs(title = "Taxa de Evasão por Faixa Etária e Currículo (1º ao 4º Período)",
+       x = "Faixa Etária",
+       y = "Taxa de Evasão (%)",
+       fill = "Currículo") +
+  theme_minimal() +
+  scale_y_continuous(labels = percent_format(scale = 1))
+
+
 
 
 
