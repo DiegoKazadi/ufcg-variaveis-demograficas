@@ -206,14 +206,121 @@ ggplot(resultado_final, aes(x = periodo, y = taxa_evasao, fill = sexo)) +
 
 
 
+library(tidyverse)
+
+#------------------#
+# FUNÇÃO: Converter período "2011.1" → contínuo
+#------------------#
+converter_periodo <- function(periodo) {
+  ano <- as.numeric(substr(periodo, 1, 4))
+  semestre <- as.numeric(substr(periodo, 6, 6))
+  return((ano - 2000) * 2 + semestre)
+}
+
+#------------------#
+# FILTRAGEM E TRANSFORMAÇÃO INICIAL
+#------------------#
+alunos <- alunos %>%
+  filter(!is.na(curriculo), !is.na(sexo), !is.na(periodo_ingresso), curriculo %in% c("1999", "2017")) %>%
+  mutate(
+    curriculo = as.character(curriculo),
+    per_ing = converter_periodo(periodo_ingresso),
+    per_eva = converter_periodo(periodo_evasao)
+  )
+
+#------------------#
+# FUNÇÃO DE CÁLCULO DE TAXA DE EVASÃO
+#------------------#
+calcular_taxa_evasao_exata <- function(df, diff_target, ingresso_min, ingresso_max) {
+  per_min <- converter_periodo(ingresso_min)
+  per_max <- converter_periodo(ingresso_max)
+  
+  ingressantes <- df %>%
+    filter(per_ing >= per_min, per_ing <= per_max) %>%
+    group_by(curriculo, sexo) %>%
+    summarise(total_ingressantes = n(), .groups = "drop")
+  
+  evadidos <- df %>%
+    filter(
+      status == "INATIVO",
+      tipo_evasao != "GRADUADO",
+      !is.na(tipo_evasao),
+      per_ing >= per_min,
+      per_ing <= per_max,
+      per_eva == per_ing + diff_target
+    ) %>%
+    group_by(curriculo, sexo) %>%
+    summarise(total_evadidos = n(), .groups = "drop")
+  
+  left_join(ingressantes, evadidos, by = c("curriculo", "sexo")) %>%
+    replace_na(list(total_evadidos = 0)) %>%
+    mutate(
+      taxa_evasao = round(100 * total_evadidos / total_ingressantes, 2),
+      diff = diff_target
+    )
+}
+
+#------------------#
+# DEFINIÇÃO DOS PERÍODOS (1999 e 2017)
+#------------------#
+periodos_definidos <- list(
+  `1º Período` = list(diff = 1, min = "2011.1", max = "2022.2"),
+  `2º Período` = list(diff = 2, min = "2011.1", max = "2022.1"),
+  `3º Período` = list(diff = 3, min = "2011.1", max = "2021.2"),
+  `4º Período` = list(diff = 4, min = "2011.1", max = "2021.1")
+)
+
+#------------------#
+# APLICAÇÃO DA FUNÇÃO PARA CADA PERÍODO
+#------------------#
+calcular_periodos <- function(df, periodos) {
+  map_dfr(names(periodos), function(nome) {
+    p <- periodos[[nome]]
+    calcular_taxa_evasao_exata(df, p$diff, p$min, p$max) %>%
+      mutate(periodo = nome)
+  })
+}
+
+resultado_final <- calcular_periodos(alunos, periodos_definidos) %>%
+  select(periodo, curriculo, sexo, total_ingressantes, total_evadidos, taxa_evasao)
+
+#------------------#
+# TABELA EM FORMATO LARGO
+#------------------#
+tabela_larga <- resultado_final %>%
+  pivot_wider(
+    names_from = periodo,
+    values_from = taxa_evasao
+  )
+
+#------------------#
+# VISUALIZAÇÃO DO RESULTADO
+#------------------#
+print(resultado_final)
+print(tabela_larga)
+
+#------------------#
+# GRÁFICO ATUALIZADO
+#------------------#
+ggplot(resultado_final, aes(x = periodo, y = taxa_evasao, fill = sexo)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  facet_wrap(~ curriculo, labeller = label_both) +
+  labs(
+    title = "Taxa de Evasão por Sexo e Currículo",
+    x = "Período Letivo",
+    y = "Taxa de Evasão (%)",
+    fill = "Sexo"
+  ) +
+  theme_minimal(base_size = 13) +
+  scale_fill_manual(values = c("MASCULINO" = "#1f77b4", "FEMININO" = "#ff7f0e")) +
+  theme(
+    strip.text = element_text(size = 13),      # <-- sem negrito
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),  # <-- rotação 90 graus
+    legend.position = "right"                  # <-- legenda à direita
+  )
 
 
-
-
-
-
-
-
+###
 
 
 
