@@ -109,4 +109,132 @@ print(resultado)
 ###
 
 head(alunos_filtrados)
+names(alunos_filtrados)
+
+# Converter períodos contínuos
+alunos <- alunos %>%
+  mutate(
+    per_ing = converter_periodo(periodo_ingresso),
+    per_eva = converter_periodo(periodo_evasao),
+    diff_periodos = per_eva - per_ing
+  )
+
+# Lista de períodos de interesse
+periodos <- list(
+  `1º Período` = list(diff = 1, min = "2011.1", max = "2017.2"),
+  `2º Período` = list(diff = 2, min = "2011.1", max = "2017.1"),
+  `3º Período` = list(diff = 3, min = "2011.1", max = "2016.2"),
+  `4º Período` = list(diff = 4, min = "2011.1", max = "2016.1")
+)
+
+# Função para calcular taxa de evasão por sexo e currículo
+calcular_taxa_evasao <- function(df, diff_target, ingresso_min, ingresso_max) {
+  per_min <- converter_periodo(ingresso_min)
+  per_max <- converter_periodo(ingresso_max)
+  
+  # Total de ingressantes
+  ingressantes <- df %>%
+    filter(
+      per_ing >= per_min,
+      per_ing <= per_max
+    ) %>%
+    group_by(curriculo, sexo) %>%
+    summarise(total_ingressantes = n(), .groups = "drop")
+  
+  # Total de evadidos no período alvo
+  evadidos <- df %>%
+    filter(
+      status == "INATIVO",
+      tipo_evasao != "GRADUADO",
+      !is.na(tipo_evasao),
+      diff_periodos == diff_target,
+      per_ing >= per_min,
+      per_ing <= per_max
+    ) %>%
+    group_by(curriculo, sexo) %>%
+    summarise(total_evadidos = n(), .groups = "drop")
+  
+  # Combinar e calcular taxa
+  resultado <- left_join(ingressantes, evadidos, by = c("curriculo", "sexo")) %>%
+    replace_na(list(total_evadidos = 0)) %>%
+    mutate(
+      taxa_evasao = round(100 * total_evadidos / total_ingressantes, 2),
+      diff = diff_target
+    )
+  
+  return(resultado)
+}
+
+# Aplicar para todos os períodos
+resultado_final <- map_dfr(names(periodos), function(nome) {
+  p <- periodos[[nome]]
+  calcular_taxa_evasao(alunos, p$diff, p$min, p$max) %>%
+    mutate(periodo = nome)
+})
+
+# Reorganizar colunas
+resultado_final <- resultado_final %>%
+  select(periodo, curriculo, sexo, total_ingressantes, total_evadidos, taxa_evasao)
+
+# Visualizar tabela
+print(resultado_final)
+
+# Tabela em formato largo para exportação ou visualização
+tabela_larga <- resultado_final %>%
+  pivot_wider(
+    names_from = periodo,
+    values_from = taxa_evasao
+  )
+
+# Exibir tabela formatada
+print(tabela_larga)
+
+
+###
+
+ggplot(resultado_final, aes(x = periodo, y = taxa_evasao, fill = sexo)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~ curriculo) +
+  labs(
+    title = "Taxa de Evasão por Sexo e Currículo nos 4 Primeiros Períodos",
+    x = "Período Letivo",
+    y = "Taxa de Evasão (%)",
+    fill = "Sexo"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("MASCULINO" = "#1f77b4", "FEMININO" = "#ff7f0e"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
