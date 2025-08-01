@@ -182,7 +182,7 @@ p_acum <- ggplot(resultado_final_acumulado, aes(x = periodo, y = taxa_evasao, fi
   geom_col(position = position_dodge(width = 0.8), width = 0.7) +
   facet_wrap(~ curriculo, labeller = label_both) +
   labs(
-    title = "Taxa de Evasão ACUMULADA por Sexo e Currículo nos 4 Primeiros Períodos",
+    title = "Taxa de Evasão ACUMULADA por Sexo e Currículo",
     subtitle = "Contando alunos que evadiram até o período especificado",
     x = "Período Letivo",
     y = "Taxa de Evasão (%)",
