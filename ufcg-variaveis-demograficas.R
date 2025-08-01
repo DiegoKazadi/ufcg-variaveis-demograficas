@@ -322,11 +322,6 @@ ggplot(resultado_final, aes(x = periodo, y = taxa_evasao, fill = sexo)) +
 
 ###
 
-library(dplyr)
-library(ggplot2)
-library(tidyr)
-library(scales)
-
 # 1. Criar variável faixa etária
 alunos <- alunos %>%
   mutate(
