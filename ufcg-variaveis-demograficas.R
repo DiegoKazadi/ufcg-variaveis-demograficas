@@ -394,9 +394,7 @@ ggplot(tabela_final, aes(x = faixa_etaria, y = taxa, fill = curriculo)) +
   theme_minimal() +
   scale_y_continuous(labels = percent_format(scale = 1))
 
-
-
-
+###
 
 
 

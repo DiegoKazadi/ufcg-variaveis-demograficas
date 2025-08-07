@@ -273,3 +273,38 @@ ggplot(resultado_faixa_final, aes(x = faixa_etaria, y = taxa_evasao, fill = curr
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+###
+
+# Recodificar status com base no tipo de evasão
+distribuicao_idade_status <- alunos %>%
+  filter(!is.na(idade), !is.na(status)) %>%
+  mutate(
+    status_discente = case_when(
+      status == "ATIVO" ~ "Ativo",
+      status == "INATIVO" & tipo_evasao == "GRADUADO" ~ "Egresso",
+      status == "INATIVO" & tipo_evasao != "GRADUADO" ~ "Evadido",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(status_discente))
+
+# Paleta com azul, laranja e verde
+cores_personalizadas <- c(
+  "Ativo" = "#0072B2",   # azul
+  "Evadido" = "#E69F00", # laranja
+  "Egresso" = "#009E73"  # verde
+)
+
+# Gráfico de densidade
+ggplot(distribuicao_idade_status, aes(x = idade, fill = status_discente)) +
+  geom_density(alpha = 0.5) +
+  scale_fill_manual(values = cores_personalizadas) +
+  labs(
+    title = "Distribuição da Idade segundo o Status do Discente",
+    x = "Idade",
+    y = "Densidade",
+    fill = "Status do Discente"
+  ) +
+  theme_minimal(base_size = 13)
