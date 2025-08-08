@@ -308,3 +308,74 @@ ggplot(distribuicao_idade_status, aes(x = idade, fill = status_discente)) +
     fill = "Status do Discente"
   ) +
   theme_minimal(base_size = 13)
+
+###
+library(dplyr)
+library(ggplot2)
+
+distribuicao_sexo_status <- alunos %>%
+  filter(!is.na(sexo), !is.na(status)) %>%
+  mutate(
+    status_discente = case_when(
+      status == "ATIVO" ~ "Ativo",
+      status == "INATIVO" & tipo_evasao == "GRADUADO" ~ "Egresso",
+      status == "INATIVO" & tipo_evasao != "GRADUADO" ~ "Evadido",
+      TRUE ~ "Outro"
+    ),
+    sexo = case_when(
+      sexo %in% c("M", "Masculino", "m", "masculino") ~ "Masculino",
+      sexo %in% c("F", "Feminino", "f", "feminino") ~ "Feminino",
+      TRUE ~ "Outro"
+    )
+  ) %>%
+  filter(sexo %in% c("Masculino", "Feminino")) %>%
+  filter(status_discente %in% c("Ativo", "Egresso", "Evadido"))
+
+# Paleta de cores personalizada
+cores_personalizadas <- c(
+  "Ativo" = "#0072B2",    # azul
+  "Evadido" = "#E69F00",  # laranja
+  "Egresso" = "#009E73"   # verde
+)
+
+# Gráfico final
+ggplot(distribuicao_sexo_status, aes(x = sexo, fill = status_discente)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_fill_manual(values = cores_personalizadas) +
+  labs(
+    title = "Distribuição por Sexo segundo o Status Acadêmico",
+    x = "Sexo",
+    y = "Proporção (%)",
+    fill = "Status do Discente"
+  ) +
+  theme_minimal(base_size = 13)
+
+
+###
+
+library(dplyr)
+library(ggplot2)
+
+# Filtrar apenas alunos ativos
+ativos <- tabela_final %>%
+  filter(status == "Ativo")
+
+# Resumo por idade
+resumo_idade_ativos <- ativos %>%
+  group_by(idade) %>%
+  summarise(qtd = n()) %>%
+  arrange(idade)
+
+print(resumo_idade_ativos)
+
+# Gráfico da distribuição
+ggplot(ativos, aes(x = idade)) +
+  geom_bar(fill = "#1f77b4", color = "black") +
+  labs(
+    title = "Distribuição por idade — estudantes com status Ativo",
+    x = "Idade",
+    y = "Quantidade de estudantes"
+  ) +
+  theme_minimal(base_size = 14)
+
