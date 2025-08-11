@@ -277,6 +277,7 @@ ggplot(resultado_faixa_final, aes(x = faixa_etaria, y = taxa_evasao, fill = curr
 
 ###
 
+
 # Recodificar status com base no tipo de evasão
 distribuicao_idade_status <- alunos %>%
   filter(!is.na(idade), !is.na(status)) %>%
@@ -309,59 +310,218 @@ ggplot(distribuicao_idade_status, aes(x = idade, fill = status_discente)) +
   ) +
   theme_minimal(base_size = 13)
 
-###
+
+
 library(dplyr)
 library(ggplot2)
 
-distribuicao_sexo_status <- alunos %>%
-  filter(!is.na(sexo), !is.na(status)) %>%
+# Criar coluna status_discente padronizada
+alunos <- alunos %>%
   mutate(
+    status_padrao = toupper(trimws(status)),
+    tipo_evasao_padrao = toupper(trimws(tipo_evasao)),
+    sexo_padrao = tolower(trimws(sexo)),
     status_discente = case_when(
-      status == "ATIVO" ~ "Ativo",
-      status == "INATIVO" & tipo_evasao == "GRADUADO" ~ "Egresso",
-      status == "INATIVO" & tipo_evasao != "GRADUADO" ~ "Evadido",
+      status_padrao == "ATIVO" ~ "Ativo",
+      status_padrao == "INATIVO" & tipo_evasao_padrao == "GRADUADO" ~ "Egresso",
+      status_padrao == "INATIVO" & tipo_evasao_padrao != "GRADUADO" ~ "Evadido",
       TRUE ~ "Outro"
     ),
-    sexo = case_when(
-      sexo %in% c("M", "Masculino", "m", "masculino") ~ "Masculino",
-      sexo %in% c("F", "Feminino", "f", "feminino") ~ "Feminino",
-      TRUE ~ "Outro"
+    sexo_final = case_when(
+      sexo_padrao %in% c("m", "masculino") ~ "Masculino",
+      sexo_padrao %in% c("f", "feminino") ~ "Feminino",
+      TRUE ~ NA_character_
     )
-  ) %>%
-  filter(sexo %in% c("Masculino", "Feminino")) %>%
-  filter(status_discente %in% c("Ativo", "Egresso", "Evadido"))
-
-# Paleta de cores personalizada
-cores_personalizadas <- c(
-  "Ativo" = "#0072B2",    # azul
-  "Evadido" = "#E69F00",  # laranja
-  "Egresso" = "#009E73"   # verde
-)
-
-# Gráfico final
-ggplot(distribuicao_sexo_status, aes(x = sexo, fill = status_discente)) +
-  geom_bar(position = "fill") +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-  scale_fill_manual(values = cores_personalizadas) +
-  labs(
-    title = "Distribuição por Sexo segundo o Status Acadêmico",
-    x = "Sexo",
-    y = "Proporção (%)",
-    fill = "Status do Discente"
-  ) +
-  theme_minimal(base_size = 13)
+  )
 
 
-###
+# 
+
+# Verificar se a tabela existe e tem dados
+if (!exists("alunos") || nrow(alunos) == 0) {
+  stop("A tabela 'alunos' não existe ou está vazia. Verifique o carregamento dos dados.")
+}
+
+# Verificar estrutura da tabela
+cat("\nEstrutura da tabela 'alunos':\n")
+str(alunos)
+
+# Verificar primeiras linhas
+cat("\nPrimeiras linhas da tabela:\n")
+head(alunos)
+
+
+# Verificar colunas necessárias
+colunas_necessarias <- c("status", "tipo_evasao", "idade", "sexo")
+colunas_faltantes <- setdiff(colunas_necessarias, names(alunos))
+
+if (length(colunas_faltantes) > 0) {
+  stop(paste("Colunas faltantes na tabela:", paste(colunas_faltantes, collapse = ", ")))
+}
+
+# Verificar valores únicos na coluna status
+cat("\nValores únicos na coluna 'status':\n")
+print(unique(alunos$status))
+
+# Verificar valores únicos na coluna tipo_evasao
+cat("\nValores únicos na coluna 'tipo_evasao':\n")
+print(unique(alunos$tipo_evasao))
+
+# Verificar valores na coluna idade
+cat("\nResumo estatístico da coluna 'idade':\n")
+print(summary(alunos$idade))
+
+### Criação dos Gráficos
+
+
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+
+# Função para padronizar os status
+padronizar_status <- function(df) {
+  df %>%
+    mutate(
+      status_padronizado = case_when(
+        toupper(trimws(status)) == "ATIVO" ~ "Ativo",
+        toupper(trimws(status)) == "INATIVO" & 
+          toupper(trimws(tipo_evasao)) == "GRADUADO" ~ "Egresso",
+        toupper(trimws(status)) == "INATIVO" & 
+          !is.na(tipo_evasao) ~ "Evadido",
+        TRUE ~ "Outro/Indefinido"
+      )
+    ) %>%
+    filter(status_padronizado %in% c("Ativo", "Egresso", "Evadido"))
+}
+
+# Aplicar padronização
+alunos_status <- padronizar_status(alunos)
+
+# Verificar contagem por status
+cat("\nContagem de estudantes por status:\n")
+print(table(alunos_status$status_padronizado))
+
+# Função para criar gráfico com verificações
+criar_grafico_idade <- function(df, status_filtro, cor) {
+  dados_filtrados <- df %>% 
+    filter(status_padronizado == status_filtro) %>%
+    filter(!is.na(idade))
+  
+  if (nrow(dados_filtrados) == 0) {
+    message(paste("Nenhum dado disponível para status:", status_filtro))
+    return(NULL)
+  }
+  
+  media_idade <- mean(dados_filtrados$idade, na.rm = TRUE)
+  moda_idade <- as.numeric(names(sort(table(dados_filtrados$idade), decreasing = TRUE)[1]))
+  
+  ggplot(dados_filtrados, aes(x = idade)) +
+    geom_bar(fill = cor, color = "black", alpha = 0.8) +
+    geom_vline(xintercept = media_idade, linetype = "dashed", color = "black", size = 1) +
+    annotate("text", x = media_idade, y = Inf, 
+             label = paste("Média:", round(media_idade, 1)), 
+             vjust = 1.5, hjust = 1.1) +
+    labs(
+      title = paste("Distribuição de Idade -", status_filtro),
+      x = "Idade",
+      y = "Quantidade de Estudantes",
+      caption = paste("Total:", nrow(dados_filtrados), "estudantes | Moda:", moda_idade)
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      plot.caption = element_text(hjust = 0.5)
+    )
+}
+
+# Criar gráficos
+g1 <- criar_grafico_idade(alunos_status, "Ativo", "#1f77b4")
+g2 <- criar_grafico_idade(alunos_status, "Egresso", "#2ca02c")
+g3 <- criar_grafico_idade(alunos_status, "Evadido", "#d62728")
+
+# Combinar gráficos (apenas se existirem)
+if (!is.null(g1) || !is.null(g2) || !is.null(g3)) {
+  # Remover gráficos nulos
+  graficos <- list(g1, g2, g3)
+  graficos <- graficos[!sapply(graficos, is.null)]
+  
+  # Combinar os gráficos disponíveis
+  if (length(graficos) > 0) {
+    combined_plot <- wrap_plots(graficos, ncol = min(3, length(graficos)))
+    print(combined_plot)
+  }
+} else {
+  message("Nenhum gráfico pôde ser gerado. Verifique os dados de entrada.")
+}
+
+# Gráfico de densidade comparativo (se houver dados)
+if (nrow(alunos_status) > 0) {
+  ggplot(alunos_status, aes(x = idade, fill = status_padronizado)) +
+    geom_density(alpha = 0.5) +
+    scale_fill_manual(values = c("Ativo" = "#1f77b4", "Egresso" = "#2ca02c", "Evadido" = "#d62728")) +
+    labs(
+      title = "Distribuição de Idade por Status",
+      x = "Idade",
+      y = "Densidade",
+      fill = "Status"
+    ) +
+    theme_minimal(base_size = 14)
+} else {
+  message("Não há dados suficientes para gerar o gráfico de densidade.")
+}
+
+
+
+library(ggplot2)
+
+# Versão mínima para teste
+teste_plot <- ggplot(alunos, aes(x = idade)) + 
+  geom_histogram(bins = 20, fill = "#d62728", color = "black") +
+  labs(title = "Distribuição de Idade - Todos os Alunos")
+
+print(teste_plot)
+
+
 
 library(dplyr)
 library(ggplot2)
 
-# Filtrar apenas alunos ativos
+# Criar faixas etárias
+alunos <- alunos %>%
+  mutate(faixa_idade = cut(
+    idade,
+    breaks = c(15, 18, 21, 24, 27, 30, 35, 40, 50, Inf),
+    labels = c("15-18", "19-21", "22-24", "25-27", "28-30", "31-35", "36-40", "41-50", "50+"),
+    right = TRUE
+  ))
+
+# Gráfico de barras com faixas etárias
+ggplot(alunos, aes(x = faixa_idade)) + 
+  geom_bar(fill = "#d62728", color = "black", width = 0.7) +
+  labs(
+    title = "Distribuição de Idade - Todos os Alunos",
+    x = "Faixa Etária (anos)",
+    y = "Quantidade"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+
+
+
+
+
+
+library(dplyr)
+library(ggplot2)
+
+# Ativos
 ativos <- tabela_final %>%
   filter(status == "Ativo")
 
-# Resumo por idade
 resumo_idade_ativos <- ativos %>%
   group_by(idade) %>%
   summarise(qtd = n()) %>%
@@ -369,7 +529,6 @@ resumo_idade_ativos <- ativos %>%
 
 print(resumo_idade_ativos)
 
-# Gráfico da distribuição
 ggplot(ativos, aes(x = idade)) +
   geom_bar(fill = "#1f77b4", color = "black") +
   labs(
@@ -379,3 +538,46 @@ ggplot(ativos, aes(x = idade)) +
   ) +
   theme_minimal(base_size = 14)
 
+#
+# Egressos
+egressos <- tabela_final %>%
+  filter(status == "Egresso")
+
+resumo_idade_egressos <- egressos %>%
+  group_by(idade) %>%
+  summarise(qtd = n()) %>%
+  arrange(idade)
+
+print(resumo_idade_egressos)
+
+ggplot(egressos, aes(x = idade)) +
+  geom_bar(fill = "#2ca02c", color = "black") +
+  labs(
+    title = "Distribuição por idade — estudantes com status Egresso",
+    x = "Idade",
+    y = "Quantidade de estudantes"
+  ) +
+  theme_minimal(base_size = 14)
+
+#
+
+# Evadidos
+evadidos <- tabela_final %>%
+  filter(status == "Evadido")
+
+resumo_idade_evadidos <- evadidos %>%
+  group_by(idade) %>%
+  summarise(qtd = n()) %>%
+  arrange(idade)
+
+print(resumo_idade_evadidos)
+
+ggplot(evadidos, aes(x = idade)) +
+  geom_bar(fill = "#d62728", color = "black") +
+  labs(
+    title = "Distribuição por idade — estudantes com status Evadido",
+    x = "Idade",
+    y = "Quantidade de estudantes"
+  ) +
+  theme_minimal(base_size = 14)
+ 
