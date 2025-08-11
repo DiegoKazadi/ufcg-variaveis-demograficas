@@ -662,13 +662,64 @@ p <- ggplot(egressos, aes(x = idade)) +
     title = "Distribuição de Idade dos Egressos",
     subtitle = sprintf("Média: %.1f anos | Fora da faixa ideal: %.1f%%", 
                        idade_media, pct_fora_faixa),
-    x = "Idade na Conclusão (anos)",
+    x = "Faixa Etária (anos)",
     y = "Número de Egressos"
   ) +
   theme_minimal(base_size = 13) +
   theme(
     plot.title = element_text(face = "bold", hjust = 0.5),
     plot.subtitle = element_text(hjust = 0.5, color = "gray30"),
+    panel.grid.minor = element_blank()
+  )
+
+print(p)
+
+###
+library(dplyr)
+library(ggplot2)
+library(knitr)  # Para impressão formatada da tabela
+
+evadidos <- alunos %>%
+  filter(status == "INATIVO", tipo_evasao != "GRADUADO", !is.na(idade))
+
+# Verificar dados
+if(nrow(evadidos) == 0) {
+  stop("Nenhum estudante evadido encontrado com os critérios especificados")
+}
+
+# Criar tabela de distribuição de idade
+tabela_idade <- evadidos %>%
+  count(idade, name = "Quantidade") %>%
+  arrange(idade) %>%
+  mutate(
+    Porcentagem = round(Quantidade / sum(Quantidade) * 100, 1),
+    Acumulado = cumsum(Quantidade),
+    '% Acumulado' = round(cumsum(Porcentagem), 1)
+  )
+
+# Imprimir tabela formatada
+cat("\nTABELA 1: Distribuição de Idade dos Estudantes Evadidos\n")
+print(kable(tabela_idade, 
+            align = 'c',
+            col.names = c("Idade", "N", "%", "Acum.N", "% Acum."),
+            format = "simple",
+            caption = "Fonte: Sistema acadêmico da UFCG"))
+
+# Calcular estatísticas-chave para o gráfico
+idade_media <- mean(evadidos$idade)
+pct_fora_faixa <- mean(evadidos$idade < 21 | evadidos$idade > 24) * 100
+
+# Gráfico com ajustes solicitados
+p <- ggplot(evadidos, aes(x = idade)) +
+  geom_histogram(binwidth = 1, fill =  "#009E73", color = "black", alpha = 0.7) +  # cor diferente para evadidos
+  labs(
+    title = "Distribuição de Idade dos Estudantes Evadidos",
+    x = "Faixa Etária (anos)",
+    y = "Número de Evadidos"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "plain", hjust = 0.5),  # remove negrito
     panel.grid.minor = element_blank()
   )
 
