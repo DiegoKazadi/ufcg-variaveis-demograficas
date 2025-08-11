@@ -613,3 +613,63 @@ p <- ggplot(egressos, aes(x = idade)) +
 
 print(p)
 
+###
+
+library(dplyr)
+library(ggplot2)
+library(knitr)  # Para impressão formatada da tabela
+
+# Filtrando egressos
+egressos <- alunos %>%
+  filter(status == "INATIVO", tipo_evasao == "GRADUADO", !is.na(idade))
+
+# Verificar dados
+if(nrow(egressos) == 0) {
+  stop("Nenhum egresso encontrado com os critérios especificados")
+}
+
+# Criar tabela de distribuição de idade
+tabela_idade <- egressos %>%
+  count(idade, name = "Quantidade") %>%
+  arrange(idade) %>%
+  mutate(
+    Porcentagem = round(Quantidade / sum(Quantidade) * 100, 1),
+    Acumulado = cumsum(Quantidade),
+    '% Acumulado' = round(cumsum(Porcentagem), 1)
+  )
+
+# Imprimir tabela formatada
+cat("\nTABELA 1: Distribuição de Idade dos Egressos na Conclusão\n")
+print(kable(tabela_idade, 
+            align = 'c',
+            col.names = c("Idade", "N", "%", "Acum.N", "% Acum."),
+            format = "simple",  # Pode usar "html" ou "latex" para relatórios
+            caption = "Fonte: Sistema acadêmico da UFCG"))
+
+# Calcular estatísticas-chave para o gráfico
+idade_media <- mean(egressos$idade)
+pct_fora_faixa <- mean(egressos$idade < 21 | egressos$idade > 24) * 100
+
+# Gráfico com ajustes
+p <- ggplot(egressos, aes(x = idade)) +
+  geom_histogram(binwidth = 1, fill = "#009E73", color = "black", alpha = 0.7) +
+  geom_vline(xintercept = 21, linetype = "dashed", color = "blue", linewidth = 1) +
+  geom_vline(xintercept = 24, linetype = "dashed", color = "blue", linewidth = 1) +
+  annotate("text", x = 22.5, y = max(table(egressos$idade)) * 0.8,
+           label = "Faixa ideal de término\n(21-24 anos)",
+           color = "blue", size = 3.5, angle = 90, vjust = -0.5) +
+  labs(
+    title = "Distribuição de Idade dos Egressos",
+    subtitle = sprintf("Média: %.1f anos | Fora da faixa ideal: %.1f%%", 
+                       idade_media, pct_fora_faixa),
+    x = "Idade na Conclusão (anos)",
+    y = "Número de Egressos"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5, color = "gray30"),
+    panel.grid.minor = element_blank()
+  )
+
+print(p)
