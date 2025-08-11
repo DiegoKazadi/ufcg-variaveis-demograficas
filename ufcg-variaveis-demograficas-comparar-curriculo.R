@@ -510,74 +510,67 @@ ggplot(alunos, aes(x = faixa_idade)) +
 
 
 
+###
+
+library(ggplot2)
+library(dplyr)
+
+# Filtrar apenas alunos com status Ativo e idade não nula
+dados_ativos <- alunos %>%
+  filter(status_discente == "Ativo", !is.na(idade))
+
+# Criar faixas de idade
+dados_ativos <- dados_ativos %>%
+  mutate(faixa_idade = cut(
+    idade,
+    breaks = seq(15, max(idade, na.rm = TRUE) + 1, by = 3),  # intervalos de 3 anos
+    right = FALSE,
+    labels = paste(seq(15, max(idade, na.rm = TRUE), by = 3),
+                   seq(17, max(idade, na.rm = TRUE) + 2, by = 3),
+                   sep = "–")
+  ))
+
+# Gráfico com barras por faixa etária
+ggplot(dados_ativos, aes(x = faixa_idade)) + 
+  geom_bar(fill = "#0072B2", color = "black") +
+  labs(
+    title = "Distribuição de Idade — Estudantes com Status Ativo",
+    x = "Faixa Etária (anos)",
+    y = "Quantidade"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)  # Rotaciona os rótulos
+  )
 
 
-
-
+###
 
 library(dplyr)
 library(ggplot2)
 
-# Ativos
-ativos <- tabela_final %>%
-  filter(status == "Ativo")
+# Filtrando apenas egressos
+egressos <- alunos %>%
+  filter(status == "INATIVO", tipo_evasao == "GRADUADO", !is.na(idade))
 
-resumo_idade_ativos <- ativos %>%
-  group_by(idade) %>%
-  summarise(qtd = n()) %>%
-  arrange(idade)
+# Criando faixas etárias de 3 em 3 anos
+egressos <- egressos %>%
+  mutate(faixa_etaria = cut(
+    idade,
+    breaks = seq(15, max(idade, na.rm = TRUE) + 1, by = 3),
+    right = FALSE,
+    labels = paste(seq(15, max(idade, na.rm = TRUE), by = 3),
+                   seq(17, max(idade, na.rm = TRUE) + 2, by = 3),
+                   sep = "-")
+  ))
 
-print(resumo_idade_ativos)
-
-ggplot(ativos, aes(x = idade)) +
-  geom_bar(fill = "#1f77b4", color = "black") +
+# Gráfico
+ggplot(egressos, aes(x = faixa_etaria)) +
+  geom_bar(fill = "#009E73", color = "black") +
   labs(
-    title = "Distribuição por idade — estudantes com status Ativo",
-    x = "Idade",
-    y = "Quantidade de estudantes"
+    title = "Distribuição de Idade — Estudantes Egressos",
+    x = "Faixa Etária (anos)",
+    y = "Quantidade"
   ) +
-  theme_minimal(base_size = 14)
-
-#
-# Egressos
-egressos <- tabela_final %>%
-  filter(status == "Egresso")
-
-resumo_idade_egressos <- egressos %>%
-  group_by(idade) %>%
-  summarise(qtd = n()) %>%
-  arrange(idade)
-
-print(resumo_idade_egressos)
-
-ggplot(egressos, aes(x = idade)) +
-  geom_bar(fill = "#2ca02c", color = "black") +
-  labs(
-    title = "Distribuição por idade — estudantes com status Egresso",
-    x = "Idade",
-    y = "Quantidade de estudantes"
-  ) +
-  theme_minimal(base_size = 14)
-
-#
-
-# Evadidos
-evadidos <- tabela_final %>%
-  filter(status == "Evadido")
-
-resumo_idade_evadidos <- evadidos %>%
-  group_by(idade) %>%
-  summarise(qtd = n()) %>%
-  arrange(idade)
-
-print(resumo_idade_evadidos)
-
-ggplot(evadidos, aes(x = idade)) +
-  geom_bar(fill = "#d62728", color = "black") +
-  labs(
-    title = "Distribuição por idade — estudantes com status Evadido",
-    x = "Idade",
-    y = "Quantidade de estudantes"
-  ) +
-  theme_minimal(base_size = 14)
- 
+  theme_minimal(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
