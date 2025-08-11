@@ -549,28 +549,67 @@ ggplot(dados_ativos, aes(x = faixa_idade)) +
 library(dplyr)
 library(ggplot2)
 
-# Filtrando apenas egressos
+# Filtrando egressos (status = INATIVO e tipo_evasao = GRADUADO)
 egressos <- alunos %>%
   filter(status == "INATIVO", tipo_evasao == "GRADUADO", !is.na(idade))
 
-# Criando faixas etárias de 3 em 3 anos
+# Faixas etárias
 egressos <- egressos %>%
   mutate(faixa_etaria = cut(
     idade,
-    breaks = seq(15, max(idade, na.rm = TRUE) + 1, by = 3),
+    breaks = seq(15, max(idade, na.rm = TRUE) + 1, by = 1), # de ano em ano p/ mais precisão
     right = FALSE,
-    labels = paste(seq(15, max(idade, na.rm = TRUE), by = 3),
-                   seq(17, max(idade, na.rm = TRUE) + 2, by = 3),
-                   sep = "-")
+    labels = paste(seq(15, max(idade, na.rm = TRUE), by = 1),
+                   seq(15, max(idade, na.rm = TRUE), by = 1), sep = "")
   ))
 
-# Gráfico
-ggplot(egressos, aes(x = faixa_etaria)) +
-  geom_bar(fill = "#009E73", color = "black") +
+# Gráfico de barras
+ggplot(egressos, aes(x = idade)) +
+  geom_histogram(binwidth = 1, fill = "#009E73", color = "black") +
+  geom_vline(xintercept = 21, linetype = "dashed", color = "blue", size = 1) +
+  geom_vline(xintercept = 24, linetype = "dashed", color = "blue", size = 1) +
+  annotate("text", x = 22.5, y = max(table(egressos$idade)) * 0.9,
+           label = "Faixa ideal de término (21-24 anos)",
+           color = "blue", size = 4, angle = 90, vjust = -0.5) +
   labs(
     title = "Distribuição de Idade — Estudantes Egressos",
-    x = "Faixa Etária (anos)",
+    x = "Idade na Conclusão (anos)",
+    y = "Quantidade"
+  ) +
+  theme_minimal(base_size = 13)
+
+###
+
+library(dplyr)
+library(ggplot2)
+
+# Filtrando egressos (status = INATIVO e tipo_evasao = GRADUADO)
+egressos <- alunos %>%
+  filter(status == "INATIVO", tipo_evasao == "GRADUADO", !is.na(idade))
+
+# Verificar se há dados suficientes
+if(nrow(egressos) == 0) {
+  stop("Nenhum egresso encontrado com os critérios especificados")
+}
+
+# Gráfico de barras
+p <- ggplot(egressos, aes(x = idade)) +
+  geom_histogram(binwidth = 1, fill = "#009E73", color = "black", alpha = 0.7) +
+  geom_vline(xintercept = 21, linetype = "dashed", color = "blue", size = 1) +
+  geom_vline(xintercept = 24, linetype = "dashed", color = "blue", size = 1) +
+  annotate("text", x = 22.5, y = max(table(egressos$idade)) * 0.8,
+           label = "Faixa ideal de término\n(21-24 anos)",
+           color = "blue", size = 3, angle = 90, vjust = -0.5) +
+  labs(
+    title = "Distribuição de Idade — Estudantes Egressos",
+    x = "Idade na Conclusão (anos)",
     y = "Quantidade"
   ) +
   theme_minimal(base_size = 13) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+print(p)
+
