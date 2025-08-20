@@ -188,6 +188,50 @@ ggplot(taxas_evasao, aes(x = curriculo, y = taxa_evasao, color = curriculo)) +
   ) +
   theme_minimal()
 
+###
+
+ggplot(taxas_evasao, aes(x = curriculo, y = taxa_evasao, color = curriculo)) +
+  geom_jitter(width = 0.15, size = 3, alpha = 0.7) +
+  stat_summary(fun = mean, geom = "point", shape = 18, size = 6, color = "black") +
+  labs(
+    title = "Distribuição das Taxas de Evasão por Currículo",
+    subtitle = "Cada ponto representa um período; losango preto indica a média",
+    x = "Currículo",
+    y = "Taxa de Evasão (%)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+###
+
+ggplot(taxas_evasao, aes(x = curriculo, y = taxa_evasao, color = curriculo)) +
+  geom_jitter(width = 0.15, size = 3, alpha = 0.7) +
+  stat_summary(fun = mean, geom = "point", shape = 18, size = 6, color = "black") +
+  labs(
+    title = "Distribuição das Taxas de Evasão por Currículo",
+    subtitle = "Cada ponto representa um período; losango preto indica a média",
+    x = "Currículo",
+    y = "Taxa de Evasão (%)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+###
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
