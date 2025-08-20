@@ -40,9 +40,20 @@ names(alunos)
 
 ###
 
+# Filtro de estudantes ingressantes entre 2011 e 2023
+
+# Converter o período de ingresso para numérico, se necessário
+alunos$`periodo_de_ingresso` <- as.numeric(alunos$`periodo_de_ingresso`)
+
+# Filtrar os dados entre 2011 e 2023
+alunos_filtrados <- alunos %>%
+  filter(`periodo_de_ingresso` >= 2011 & `periodo_de_ingresso` <= 2023)
+
+nrow(alunos_filtrados)  # Quantidade de registros após o filtro
+
 # Filtrar apenas os evadidos (inativos ≠ graduados)
 
-evadidos <- alunos %>%
+evadidos <- alunos_filtrados %>%
   filter(
     status == "INATIVO",
     tipo_de_evasao != "GRADUADO"
@@ -73,6 +84,121 @@ ggplot(motivos_evasao, aes(x = reorder(tipo_de_evasao, -total), y = total)) +
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+###
+
+# Distribuição das taxas de evasão por Currículo.
+
+# ------------------------------
+# Função para calcular taxas de evasão por currículo e período
+# ------------------------------
+calcular_taxa_evasao <- function(dados, periodos, nome_curriculo) {
+  resultados <- list()
+  
+  for (p in names(periodos)) {
+    info <- periodos[[p]]
+    
+    df <- dados %>%
+      filter(
+        periodo_de_ingresso >= as.numeric(info$min),
+        periodo_de_ingresso <= as.numeric(info$max)
+      ) %>%
+      mutate(
+        periodo_alvo = periodo_de_ingresso + info$diff - 1,
+        curriculo = nome_curriculo,
+        periodo = p
+      ) %>%
+      group_by(curriculo, periodo) %>%
+      summarise(
+        total = n(),
+        evadidos = sum(status == "INATIVO" & tipo_de_evasao != "GRADUADO"),
+        taxa_evasao = round(evadidos / total * 100, 2),
+        .groups = "drop"
+      )
+    
+    resultados[[p]] <- df
+  }
+  
+  bind_rows(resultados)
+}
+
+# ------------------------------
+# Aplicar a função para cada currículo
+# ------------------------------
+taxas_1999 <- calcular_taxa_evasao(alunos_filtrados, periodos_1999, "Currículo 1999")
+taxas_2017 <- calcular_taxa_evasao(alunos_filtrados, periodos_2017, "Currículo 2017")
+
+# Unir resultados
+taxas_evasao <- bind_rows(taxas_1999, taxas_2017)
+
+print(taxas_evasao)
+
+# ------------------------------
+# Gráfico comparativo
+# ------------------------------
+ggplot(taxas_evasao, aes(x = periodo, y = taxa_evasao, fill = curriculo)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = paste0(taxa_evasao, "%")), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.3, size = 3.5) +
+  labs(
+    title = "Distribuição das Taxas de Evasão por Currículo e Período",
+    x = "Período do Curso",
+    y = "Taxa de Evasão (%)",
+    fill = "Currículo"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+###
+
+# ------------------------------
+# Boxplot: Distribuição das taxas de evasão por currículo
+# ------------------------------
+ggplot(taxas_evasao, aes(x = curriculo, y = taxa_evasao, fill = curriculo)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) + # evita sobreposição com jitter
+  geom_jitter(width = 0.15, size = 2, color = "black", alpha = 0.6) + # pontos individuais
+  labs(
+    title = "Distribuição das Taxas de Evasão por Currículo",
+    subtitle = "Comparação entre os currículos de 1999 e 2017 nos quatro primeiros períodos",
+    x = "Currículo",
+    y = "Taxa de Evasão (%)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 11, face = "bold"),
+    plot.title = element_text(size = 15, face = "bold"),
+    plot.subtitle = element_text(size = 11, color = "gray40")
+  ) +
+  scale_y_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 10)
+  )
+
+ggplot(taxas_evasao, aes(x = curriculo, y = taxa_evasao, color = curriculo)) +
+  stat_summary(fun = mean, geom = "point", size = 4) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2) +
+  geom_jitter(width = 0.15, alpha = 0.6) +
+  labs(
+    title = "Taxas de Evasão por Currículo",
+    subtitle = "Média e dispersão nos quatro primeiros períodos",
+    x = "Currículo",
+    y = "Taxa de Evasão (%)"
+  ) +
+  theme_minimal()
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # grafico 
@@ -372,9 +498,6 @@ ggplot(distribuicao_idade_status, aes(x = idade, fill = status_discente)) +
 
 
 
-library(dplyr)
-library(ggplot2)
-
 # Criar coluna status_discente padronizada
 alunos <- alunos %>%
   mutate(
@@ -432,11 +555,6 @@ cat("\nResumo estatístico da coluna 'idade':\n")
 print(summary(alunos$idade))
 
 ### Criação dos Gráficos
-
-
-library(dplyr)
-library(ggplot2)
-library(patchwork)
 
 # Função para padronizar os status
 padronizar_status <- function(df) {
@@ -674,10 +792,6 @@ p <- ggplot(egressos, aes(x = idade)) +
 print(p)
 
 ###
-
-library(dplyr)
-library(ggplot2)
-library(knitr)  # Para impressão formatada da tabela
 
 # Filtrando egressos
 egressos <- alunos %>%
