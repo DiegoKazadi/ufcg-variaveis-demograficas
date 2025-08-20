@@ -13,8 +13,9 @@ library(kableExtra)
 library(rmarkdown)
 
 # Caminho do arquivo
-caminho <- "C:/Users/Big Data/Documents/Master UFCG/Semestre 2025.2/Tabelas/alunos-final.csv"
+# caminho <- "C:/Users/Big Data/Documents/Master UFCG/Semestre 2025.2/Tabelas/alunos-final.csv"
 
+caminho <- "/home/diego/Documentos/Semestre 2024.2/Nova_Analise/tabelas"
 # Leitura correta do CSV com delimitador ";"
 alunos <- read_delim(
   caminho,

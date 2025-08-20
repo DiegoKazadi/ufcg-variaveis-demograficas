@@ -73,7 +73,6 @@ print(motivos_evasao)
 
 # Gráfico da distribuição dos motivos
 
-
 ggplot(motivos_evasao, aes(x = reorder(tipo_de_evasao, -total), y = total)) +
   geom_col(fill = "steelblue") +
   geom_text(aes(label = paste0(porcentagem, "%")), vjust = -0.5, size = 3.5) +
@@ -92,22 +91,33 @@ ggplot(motivos_evasao, aes(x = reorder(tipo_de_evasao, -total), y = total)) +
 # ------------------------------
 # Função para calcular taxas de evasão por currículo e período
 # ------------------------------
-calcular_taxa_evasao <- function(dados, periodos, nome_curriculo) {
+calcular_taxa_evasao <- function(dados, nome_curriculo, max_periodo = 4) {
   resultados <- list()
   
-  for (p in names(periodos)) {
-    info <- periodos[[p]]
+  # Garantir que periodo_de_ingresso é numérico
+  dados <- dados %>%
+    mutate(periodo_de_ingresso = as.numeric(periodo_de_ingresso))
+  
+  for (p in 1:max_periodo) {
+    # Para cada período curricular (P1, P2, ...)
+    periodo_nome <- paste0("P", p)
     
     df <- dados %>%
+      # Seleciona alunos cujo currículo permite análise até o período p
+      # (ex: ingresso em 2023 só pode ter P1 até 2023.1, mas não P4)
       filter(
-        periodo_de_ingresso >= as.numeric(info$min),
-        periodo_de_ingresso <= as.numeric(info$max)
+        !is.na(periodo_de_ingresso),
+        periodo_de_ingresso <= 2023 - (p - 1)  # ex: P4 precisa ter ingressado até 2020
       ) %>%
+      # Calcula o período alvo: ingresso + p - 1
       mutate(
-        periodo_alvo = periodo_de_ingresso + info$diff - 1,
+        periodo_alvo = periodo_de_ingresso + p - 1,
         curriculo = nome_curriculo,
-        periodo = p
+        periodo = periodo_nome
       ) %>%
+      # Aqui você poderia filtrar por status até o período_alvo, 
+      # mas como não tem data de evasão, assumimos que status é atual
+      # → então estamos calculando a evasão **até hoje**, não por período
       group_by(curriculo, periodo) %>%
       summarise(
         total = n(),
@@ -116,7 +126,7 @@ calcular_taxa_evasao <- function(dados, periodos, nome_curriculo) {
         .groups = "drop"
       )
     
-    resultados[[p]] <- df
+    resultados[[periodo_nome]] <- df
   }
   
   bind_rows(resultados)
@@ -219,14 +229,83 @@ ggplot(taxas_evasao, aes(x = curriculo, y = taxa_evasao, color = curriculo)) +
 
 ###
 
+# violino + pontos individuais
+
+ggplot(taxas_evasao, aes(x = curriculo, y = taxa_evasao, fill = curriculo)) +
+  geom_violin(trim = FALSE, alpha = 0.6) +
+  geom_jitter(width = 0.15, size = 3, color = "black", alpha = 0.7) +
+  stat_summary(fun = mean, geom = "point", shape = 18, size = 6, color = "red") +
+  labs(
+    title = "Distribuição das Taxas de Evasão por Currículo",
+    subtitle = "Currículos de 1999 e 2017 nos quatro primeiros períodos",
+    x = "Currículo",
+    y = "Taxa de Evasão (%)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
 
 
+###
+
+# densidade de pontos (stripplot)
+
+ggplot(taxas_evasao, aes(x = curriculo, y = taxa_evasao, color = curriculo)) +
+  geom_jitter(width = 0.2, height = 0, size = 4, alpha = 0.7) +
+  stat_summary(fun = mean, geom = "point", shape = 18, size = 6, color = "black") +
+  labs(
+    title = "Distribuição das Taxas de Evasão por Currículo",
+    subtitle = "Cada ponto representa um período; losango preto indica a média",
+    x = "Currículo",
+    y = "Taxa de Evasão (%)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+###
+
+# ggplot(taxas_evasao, aes(x = curriculo, y = taxa_evasao, color = curriculo)) +
+geom_jitter(width = 0.2, height = 0, size = 4, alpha = 0.7) +
+  stat_summary(fun = mean, geom = "point", shape = 18, size = 6, color = "black") +
+  labs(
+    title = "Distribuição das Taxas de Evasão por Currículo",
+    subtitle = "Cada ponto representa um período; losango preto indica a média",
+    x = "Currículo",
+    y = "Taxa de Evasão (%)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
 
 
+###
+ ggplot(taxas_evasao, aes(x = curriculo, y = taxa_evasao, color = curriculo)) +
+  geom_jitter(width = 0.2, height = 0, size = 4, alpha = 0.7) +
+  stat_summary(fun = mean, geom = "point", shape = 18, size = 6, color = "black") +
+  labs(
+    title = "Distribuição das Taxas de Evasão por Currículo",
+    subtitle = "Cada ponto representa um período; losango preto indica a média",
+    x = "Currículo",
+    y = "Taxa de Evasão (%)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
 
+###
 
+# linha por período (comparação direta)
 
-
+ggplot(taxas_evasao, aes(x = periodo, y = taxa_evasao, color = curriculo, group = curriculo)) +
+    geom_line(size = 1) +
+    geom_point(size = 3) +
+    labs(
+      title = "Taxas de Evasão por Período e Currículo",
+      subtitle = "Comparação dos currículos de 1999 e 2017",
+      x = "Período",
+      y = "Taxa de Evasão (%)",
+      color = "Currículo"
+    ) +
+    theme_minimal()
+  
+### 
 
 
 
