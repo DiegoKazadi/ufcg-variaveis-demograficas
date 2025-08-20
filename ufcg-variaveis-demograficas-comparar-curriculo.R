@@ -1,62 +1,122 @@
-library(tidyverse)
-library(janitor)
-library(scales) # Para formatar porcentagens no gráfico
-
-# Carregando pacotes
-library(tidyverse)
+# Carregar apenas pacotes necessários
+library(readr)
+library(dplyr)
 library(janitor)
 library(stringr)
-library(data.table)
+library(tidyverse)  # carrega: ggplot2, dplyr, readr, stringr, forcats, etc.
+library(janitor)    # limpeza de nomes e tabelas
+library(gt)         # para gerar tabelas elegantes
+library(viridis)    # paleta de cores acessível
+library(ggthemes)   # temas extras para gráficos
 library(ggplot2)
-library(plotly)
-library(ggthemes)
-library(psych)
-library(summarytools)
-library(gt)
-library(kableExtra)
-library(rmarkdown)
+mtcars %>% head()
 
-# Caminho do arquivo (ajuste conforme necessário)
-caminho <- "C:/Users/Big Data/Documents/Master UFCG/Semestre 2025.2/Tabelas/alunos-final.csv"
+# Definir o caminho base onde estão os arquivos
+caminho_base <- "/home/diego/Documentos/Semestre 2024.2/Nova_Analise/tabelas"
 
-# Leitura correta do CSV com delimitador ";"
-alunos <- read_delim(
-  caminho,
-  delim = ";",
-  locale = locale(encoding = "ISO-8859-1"),
-  quote = "\"",
-  escape_double = FALSE,
-  trim_ws = TRUE
-)
+# Nome do arquivo que será carregado
+arquivo_alunos <- file.path(caminho_base, "alunos-final.csv")
 
-# Verificar se foi carregado corretamente
-if (ncol(alunos) == 1) {
-  stop("O arquivo foi carregado com apenas uma coluna. Verifique o delimitador ou codificação.")
-}
+# Leitura do arquivo CSV
+# Utilizamos read_csv do pacote readr por ser mais rápido e robusto com grandes volumes de dados
+alunos <- readr::read_delim(arquivo_alunos, delim = ",", locale = locale(encoding = "UTF-8"), show_col_types = FALSE)
 
-# Limpar e renomear colunas
-alunos <- alunos %>%
-  janitor::clean_names() %>%
-  rename_with(~ c("cpf", "matricula", "periodo_ingresso", "forma_ingresso",
-                  "curriculo", "estado_civil", "sexo", "idade",
-                  "cor", "cota", "status", "tipo_evasao", "periodo_evasao"))
+# Visualizar as primeiras linhas para garantir que foi carregado corretamente
+head(alunos)
 
-# Conversões de tipo
-alunos <- alunos %>%
-  mutate(
-    idade = as.numeric(idade),
-    periodo_ingresso = as.character(periodo_ingresso),
-    periodo_evasao = as.character(periodo_evasao),
-    curriculo = as.character(curriculo) # Garantir que currículo é caractere
+# Verificar estrutura do dataframe: tipos de variáveis, dimensões, etc.
+glimpse(alunos)
+
+# Exemplo de verificação rápida: contagem de linhas e colunas
+cat("Total de linhas:", nrow(alunos), "\n")
+cat("Total de colunas:", ncol(alunos), "\n")
+
+# Verificar se há valores ausentes por coluna
+colSums(is.na(alunos))
+alunos <- alunos %>% clean_names()
+
+# Mostrar nomes das colunas para referência
+names(alunos)
+
+###
+
+# Filtrar apenas os evadidos (inativos ≠ graduados)
+
+evadidos <- alunos %>%
+  filter(
+    status == "INATIVO",
+    tipo_de_evasao != "GRADUADO"
   )
 
-# Função para converter períodos como "2011.1" para valor contínuo
+# Contar e calcular proporção dos tipos de evasão
+
+motivos_evasao <- evadidos %>%
+  group_by(tipo_de_evasao) %>%
+  summarise(total = n(), .groups = "drop") %>%
+  mutate(
+    porcentagem = round(total / sum(total) * 100, 2)
+  ) %>%
+  arrange(desc(total))
+
+print(motivos_evasao)
+
+# Gráfico da distribuição dos motivos
+
+
+ggplot(motivos_evasao, aes(x = reorder(tipo_de_evasao, -total), y = total)) +
+  geom_col(fill = "steelblue") +
+  geom_text(aes(label = paste0(porcentagem, "%")), vjust = -0.5, size = 3.5) +
+  labs(
+    title = "Distribuição dos Motivos de Evasão (Inativos não Graduados)",
+    x = "Motivo da Evasão",
+    y = "Número de Estudantes"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+
+# grafico 
+
+ggplot(motivos_evasao, aes(x = reorder(tipo_de_evasao, -total), y = total, fill = tipo_de_evasao)) +
+  geom_col(show.legend = TRUE) +
+  geom_text(aes(label = paste0(porcentagem, "%")), 
+            vjust = -0.5, size = 3.5, color = "black") +
+  labs(
+    title = "Distribuição dos Motivos de Evasão (Inativos não Graduados)",
+    x = "Motivo da Evasão",
+    y = "Número de Estudantes",
+    fill = "Tipo de Evasão"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 25, hjust = 1),
+    legend.position = "right",
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 11)
+  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Função para converter períodos no formato "2011.1" em valor contínuo
 converter_periodo <- function(periodo) {
   periodo <- str_trim(as.character(periodo))
-  if (nchar(periodo) < 6) return(NA_real_) # Proteção contra períodos mal formatados
+  if (nchar(periodo) < 6) return(NA_real_)
   ano <- as.numeric(str_sub(periodo, 1, 4))
   semestre <- as.numeric(str_sub(periodo, 6, 6))
-  return((ano - 2000) * 2 + semestre)
+  (ano - 2000) * 2 + semestre
 }
 
 # Definir os períodos de análise para cada currículo
@@ -121,8 +181,8 @@ calcular_taxa_evasao_exata <- function(df, diff_target, ingresso_min, ingresso_m
 # Adicionar colunas de períodos convertidos ao dataframe
 alunos_com_periodos <- alunos %>%
   mutate(
-    per_ing = converter_periodo(periodo_ingresso),
-    per_eva = converter_periodo(periodo_evasao)
+    per_ing = converter_periodo(periodo_de_ingresso),
+    per_eva = converter_periodo(tipo_de_evasao)
   )
 
 # Função para processar todos os períodos de um currículo
@@ -724,3 +784,110 @@ p <- ggplot(evadidos, aes(x = idade)) +
   )
 
 print(p)
+
+
+###
+# Pacotes necessários
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(scales)  # para formatar percentuais
+
+# 1. Leitura dos dados
+alunos <- read_csv("/home/diego/Documentos/Semestre 2025.2/alunos-final.csv")
+
+# 2. Filtrar apenas evadidos (excluindo graduados)
+evadidos <- alunos %>%
+  filter(status == "INATIVO", tipo_evasao != "GRADUADO")
+
+# 3. Criar faixas etárias
+evadidos <- evadidos %>%
+  mutate(faixa_idade = cut(
+    idade,
+    breaks = seq(15, max(idade, na.rm = TRUE) + 1, by = 3),
+    right = FALSE,
+    labels = paste(seq(15, max(idade, na.rm = TRUE)-2, by = 3),
+                   seq(15+2, max(idade, na.rm = TRUE), by = 3),
+                   sep = "-")
+  ))
+
+# 4. Calcular percentuais por tipo_evasao e faixa
+evadidos_pct <- evadidos %>%
+  group_by(faixa_idade, tipo_evasao) %>%
+  summarise(qtd = n(), .groups = "drop") %>%
+  group_by(faixa_idade) %>%
+  mutate(percentual = qtd / sum(qtd) * 100)
+
+# 5. Plotar gráfico
+ggplot(evadidos_pct, aes(x = faixa_idade, y = percentual, fill = tipo_evasao)) +
+  geom_bar(stat = "identity", position = "stack", color = "black") +
+  scale_y_continuous(labels = percent_format(scale = 1)) +
+  labs(
+    title = "Distribuição de Idade — Estudantes Evadidos",
+    x = "Faixa Etária (anos)",
+    y = "Proporção (%)",
+    fill = "Tipo de Evasão"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+###
+
+library(readr)
+library(dplyr)
+library(janitor)
+
+# Caminho do arquivo CSV
+caminho <- "/home/diego/Documentos/Semestre 2025.2/Tabelas/alunos-final.csv"
+
+# Tentativa de leitura automática (detecta delimitador)
+alunos <- read_delim(
+  caminho,
+  delim = NULL,  # auto-detecção do delimitador (, ; ou tab)
+  locale = locale(encoding = "ISO-8859-1"),
+  quote = "\"",
+  escape_double = FALSE,
+  trim_ws = TRUE
+)
+
+# Caso ainda venha como uma coluna só, forçar leitura com vírgula
+if (ncol(alunos) == 1) {
+  alunos <- read_delim(
+    caminho,
+    delim = ",",
+    locale = locale(encoding = "ISO-8859-1"),
+    quote = "\"",
+    escape_double = FALSE,
+    trim_ws = TRUE
+  )
+}
+
+# Padronizar nomes das colunas
+alunos <- alunos %>%
+  janitor::clean_names()
+
+# Renomear colunas (ajuste conforme necessário, dependendo da ordem real do CSV)
+colnames(alunos) <- c(
+  "cpf", "matricula", "periodo_ingresso", "forma_ingresso",
+  "curriculo", "estado_civil", "sexo", "idade",
+  "cor", "cota", "status", "tipo_evasao", "periodo_evasao"
+)
+
+# Converter colunas para tipos adequados
+alunos <- alunos %>%
+  mutate(
+    idade = as.numeric(idade),
+    periodo_ingresso = as.character(periodo_ingresso),
+    periodo_evasao = as.character(periodo_evasao),
+    curriculo = as.character(curriculo)
+  )
+
+# Filtrar apenas estudantes evadidos com status "INATIVO" e tipo_evasao diferente de "GRADUADO"
+evadidos <- alunos %>%
+  filter(status == "INATIVO", tipo_evasao != "GRADUADO", !is.na(idade))
+
+# Conferir resultado
+glimpse(evadidos)
+head(evadidos)
+
