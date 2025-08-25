@@ -6,7 +6,10 @@ library(scales) # Para formatar porcentagens no gráfico
 
 # --- 1. CARREGAMENTO E PREPARAÇÃO INICIAL DOS DADOS ---
 # Caminho do arquivo (ajuste conforme necessário)
-caminho <- "C:/Users/Big Data/Documents/Master UFCG/Semestre 2025.2/Tabelas/alunos-final.csv"
+# caminho <- "C:/Users/Big Data/Documents/Master UFCG/Semestre 2025.2/Tabelas/alunos-final.csv"
+
+caminho_base <- "/home/diego/Documentos/Semestre 2025.2/Tabelas/alunos-final.csv"
+
 
 # Leitura correta do CSV com delimitador ";"
 alunos <- read_delim(
