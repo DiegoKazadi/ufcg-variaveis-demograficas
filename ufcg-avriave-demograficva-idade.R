@@ -49,61 +49,155 @@ dados_filtrados <- dados %>%
 cat("Total antes do filtro:", nrow(dados), "\n")
 cat("Total após o filtro (2011 a 2023):", nrow(dados_filtrados), "\n")
 
-
 # ============================
-# Variável demográfica: Idade
+# Análise Demográfica: Idade
 # ============================
 
-# Supondo que existam colunas "ano_nascimento" e "periodo_de_ingresso"
-# Caso o CSV use outros nomes, ajuste aqui após verificar com colnames(dados)
+# Criar faixas etárias
 dados_filtrados <- dados_filtrados %>%
-  mutate(
-    idade_ingresso = as.numeric(periodo_de_ingresso) - as.numeric(ano_nascimento),
-    faixa_etaria = case_when(
-      idade_ingresso < 18 ~ "<18",
-      idade_ingresso >= 18 & idade_ingresso <= 20 ~ "18-20",
-      idade_ingresso >= 21 & idade_ingresso <= 25 ~ "21-25",
-      idade_ingresso >= 26 & idade_ingresso <= 30 ~ "26-30",
-      idade_ingresso > 30 ~ "31+",
-      TRUE ~ NA_character_
-    )
-  )
+  mutate(faixa_idade = case_when(
+    idade_aproximada_no_ingresso < 20 ~ "<20",
+    idade_aproximada_no_ingresso >= 20 & idade_aproximada_no_ingresso <= 24 ~ "20-24",
+    idade_aproximada_no_ingresso >= 25 & idade_aproximada_no_ingresso <= 29 ~ "25-29",
+    idade_aproximada_no_ingresso >= 30 & idade_aproximada_no_ingresso <= 34 ~ "30-34",
+    idade_aproximada_no_ingresso >= 35 & idade_aproximada_no_ingresso <= 39 ~ "35-39",
+    idade_aproximada_no_ingresso >= 40 ~ "40+",
+    TRUE ~ NA_character_
+  ))
 
-# ============================
-# Tabelas comparativas evasão x idade
-# ============================
-# Supondo que exista uma variável "evasao" (0 = não evadido, 1 = evadido)
-# e uma variável "curriculo" (1999 ou 2017)
-
+# Contar total e evasão
 tabela_idade <- dados_filtrados %>%
-  group_by(curriculo, faixa_etaria) %>%
+  mutate(evadido = ifelse(status == "INATIVO" & tipo_de_evasao != "GRADUADO", 1, 0)) %>%
+  group_by(curriculo, faixa_idade) %>%
   summarise(
     total = n(),
-    evadidos = sum(evasao == 1, na.rm = TRUE),
-    taxa_evasao = evadidos / total
-  ) %>%
-  ungroup()
+    evadidos = sum(evadido, na.rm = TRUE),
+    taxa_evasao = round((evadidos / total) * 100, 1),
+    .groups = "drop"
+  )
 
-# Visualização em tabela formatada
-tabela_idade %>%
-  gt() %>%
-  fmt_percent(columns = vars(taxa_evasao), decimals = 1) %>%
+# ============================
+# Tabela comparativa
+# ============================
+tabela_gt <- tabela_idade %>%
+  gt(rowname_col = "faixa_idade") %>%
   tab_header(
-    title = "Taxa de Evasão por Faixa Etária e Currículo",
-    subtitle = "Ingressantes 2011-2023"
+    title = "Taxa de Evasão por Faixa Etária",
+    subtitle = "Comparação entre Currículos 1999 e 2017 (Ingressantes 2011-2023)"
+  ) %>%
+  fmt_percent(columns = taxa_evasao, scale_values = FALSE) %>%
+  cols_label(
+    curriculo = "Currículo",
+    total = "Total",
+    evadidos = "Evadidos",
+    taxa_evasao = "Taxa de Evasão"
+  )
+
+print(tabela_gt)
+
+# ============================
+# Gráfico descritivo
+# ============================
+ggplot(tabela_idade, aes(x = faixa_idade, y = taxa_evasao, fill = as.factor(curriculo))) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = paste0(taxa_evasao, "%")), 
+            position = position_dodge(width = 0.9), vjust = -0.3, size = 3) +
+  scale_fill_viridis_d(name = "Currículo") +
+  labs(
+    title = "Taxa de Evasão por Faixa Etária",
+    subtitle = "Comparação entre Currículos 1999 e 2017",
+    x = "Faixa Etária (anos)",
+    y = "Taxa de Evasão (%)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(face = "bold")
+  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ============================
+# Filtrar estudantes 2011-2023 e currículos válidos
+# ============================
+dados_filtrados <- dados %>%
+  filter(
+    periodo_de_ingresso >= 2011 & periodo_de_ingresso <= 2023,
+    curriculo %in% c(1999, 2017)  # Mantém apenas os currículos 1999 e 2017
+  )
+
+cat("Total após filtro de ingresso e currículos:", nrow(dados_filtrados), "\n")
+
+# ============================
+# Análise Demográfica: Idade
+# ============================
+# Criar faixas etárias
+dados_filtrados <- dados_filtrados %>%
+  mutate(faixa_idade = case_when(
+    idade_aproximada_no_ingresso < 20 ~ "<20",
+    idade_aproximada_no_ingresso >= 20 & idade_aproximada_no_ingresso <= 24 ~ "20-24",
+    idade_aproximada_no_ingresso >= 25 & idade_aproximada_no_ingresso <= 29 ~ "25-29",
+    idade_aproximada_no_ingresso >= 30 & idade_aproximada_no_ingresso <= 34 ~ "30-34",
+    idade_aproximada_no_ingresso >= 35 & idade_aproximada_no_ingresso <= 39 ~ "35-39",
+    idade_aproximada_no_ingresso >= 40 ~ "40+",
+    TRUE ~ NA_character_
+  ))
+
+# Contar total e evasão
+tabela_idade <- dados_filtrados %>%
+  mutate(evadido = ifelse(status == "INATIVO" & tipo_de_evasao != "GRADUADO", 1, 0)) %>%
+  group_by(curriculo, faixa_idade) %>%
+  summarise(
+    total = n(),
+    evadidos = sum(evadido, na.rm = TRUE),
+    taxa_evasao = round((evadidos / total) * 100, 1),
+    .groups = "drop"
   )
 
 # ============================
-# Gráficos descritivos
+# Mostrar tabela no console
 # ============================
-ggplot(tabela_idade, aes(x = faixa_etaria, y = taxa_evasao, fill = as.factor(curriculo))) +
+print(tabela_idade)
+
+# ============================
+# Gráfico descritivo
+# ============================
+ggplot(tabela_idade, aes(x = faixa_idade, y = taxa_evasao, fill = as.factor(curriculo))) +
   geom_col(position = "dodge") +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-  scale_fill_viridis_d(name = "Currículo") +
-  theme_minimal(base_size = 13) +
+  geom_text(aes(label = paste0(taxa_evasao, "%")), 
+            position = position_dodge(width = 0.9), vjust = -0.3, size = 3) +
+  scale_fill_manual(
+    name = "Currículo", 
+    values = c("1999" = "#1f468b", "2017" = "#f29c11") # azul escuro e laranja
+  ) +
   labs(
-    title = "Taxa de Evasão por Faixa Etária e Currículo",
-    subtitle = "Ingressantes 2011-2023",
-    x = "Faixa Etária no Ingresso",
-    y = "Taxa de Evasão"
+    title = "Taxa de Evasão por Faixa Etária",
+    subtitle = "Comparação entre Currículos 1999 e 2017 (Ingressantes 2011-2023)",
+    x = "Faixa Etária (anos)",
+    y = "Taxa de Evasão (%)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "right",  # legenda lateral
+    plot.title = element_text(face = "bold")
   )
+
