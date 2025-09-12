@@ -56,3 +56,5 @@ cat("📊 Linhas:", nrow(dados), "| Colunas:", ncol(dados), "\n")
 
 # Visualizar primeiras linhas
 print(head(dados, 5))
+
+
